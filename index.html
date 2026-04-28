@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>기온 데이터 분석 시각화</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { 
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif; 
+            background-color: #f8f9fa; 
+            padding: 40px 20px;
+            color: #333;
+        }
+        .container { 
+            max-width: 1000px; 
+            margin: 0 auto;
+            background: white; 
+            padding: 30px; 
+            border-radius: 15px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05); 
+        }
+        h2 { text-align: center; margin-bottom: 10px; color: #1a1a1a; }
+        .desc { text-align: center; color: #666; margin-bottom: 30px; }
+        canvas { width: 100% !important; height: auto !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🌡️ 서울 vs 추풍령 연평균 기온 변화 비교</h2>
+        <p class="desc">마우스 포인터를 그래프 위에 올리면 상세 온도가 표시됩니다.</p>
+        
+        <canvas id="tempChart"></canvas>
+    </div>
+
+    <script>
+        // 파일명은 올려주신 것과 동일하게 설정
+        const seoulCsv = 'OBS_ASOS_ANL_20260427125238.csv';
+        const cpCsv = 'OBS_ASOS_ANL_20260427125155.csv';
+
+        async function getCsvData(url) {
+            const response = await fetch(url);
+            const text = await response.text();
+            const rows = text.trim().split('\n').slice(1); 
+            const labels = [];
+            const values = [];
+            
+            rows.forEach(row => {
+                const cols = row.split(',');
+                if(cols.length >= 4) {
+                    labels.push(cols[2].trim()); // 연도
+                    values.push(parseFloat(cols[3])); // 평균기온
+                }
+            });
+            return { labels, values };
+        }
+
+        async function createChart() {
+            const seoul = await getCsvData(seoulCsv);
+            const cp = await getCsvData(cpCsv);
+
+            const ctx = document.getElementById('tempChart').getContext('2d');
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: seoul.labels,
+                    datasets: [
+                        {
+                            label: '서울 (실험군: 대도시)',
+                            data: seoul.values,
+                            borderColor: '#ff4d4d',
+                            backgroundColor: 'rgba(255, 77, 77, 0.1)',
+                            borderWidth: 3,
+                            pointRadius: 3,
+                            pointHoverRadius: 7, // 마우스 올렸을 때 점 크기 확대
+                            fill: false,
+                            tension: 0.3
+                        },
+                        {
+                            label: '추풍령 (대조군: 자연상태)',
+                            data: cp.values,
+                            borderColor: '#2ecc71',
+                            backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                            borderWidth: 3,
+                            pointRadius: 3,
+                            pointHoverRadius: 7, // 마우스 올렸을 때 점 크기 확대
+                            fill: false,
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    interaction: {
+                        mode: 'index',     // 같은 연도의 데이터를 동시에 보여줌
+                        intersect: false,  // 선 근처에만 가도 표시되게 함
+                    },
+                    plugins: {
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)', // 검은색 반투명 박스
+                            padding: 12,
+                            titleFont: { size: 14 },
+                            bodyFont: { size: 14 },
+                            callbacks: {
+                                // ★ 여기서 마우스 올렸을 때 온도 뒤에 °C를 붙여줍니다.
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) { label += ': '; }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y + '°C';
+                                    }
+                                    return label;
+                                }
+                            }
+                        },
+                        legend: {
+                            labels: { font: { size: 13, weight: 'bold' } }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            title: { display: true, text: '평균 기온 (°C)', font: { weight: 'bold' } },
+                            ticks: { callback: value => value + '°C' } // Y축 숫자에도 °C 표시
+                        },
+                        x: {
+                            title: { display: true, text: '연도', font: { weight: 'bold' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        createChart();
+    </script>
+</body>
+</html>
